@@ -1,7 +1,6 @@
 import { PrismaClient, type User, type Video, type VideoEngagement, type Announcement, type AnnouncementEngagement, type Comment, type FollowEngagement, type Playlist, type PlaylistHasVideo } from "@prisma/client";
 import fs from "fs";
 import path from "path";
-// import { number } from "zod";
 
 const prisma = new PrismaClient();
 
@@ -33,7 +32,6 @@ const playlistHasVideosFile = path.join(__dirname, "data/playlistHasVideo.json")
 const playlistHasVideos: PlaylistHasVideo[] = JSON.parse(fs.readFileSync(playlistHasVideosFile, "utf-8")) as PlaylistHasVideo[];
 
 
-
 async function processInChunks<T, U>(
   items: T[],
   chunkSize: number,
@@ -47,7 +45,8 @@ async function processInChunks<T, U>(
   }
   return results;
 }
-function generateNextId(start: number, end: number){
+
+function generateNextId(start: number, end: number) {
   let current = start;
   return function getNextId(){
     const nextId = current;
@@ -64,12 +63,12 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.video.deleteMany();
   await prisma.videoEngagement.deleteMany();
+  await prisma.followEngagement.deleteMany();
   await prisma.announcement.deleteMany();
   await prisma.announcementEngagement.deleteMany();
-  // await prisma.comment.deleteMany();
-  // await prisma.followEngagement.deleteMany();
-  // await prisma.playlist.deleteMany();
-  // await prisma.playlistHasVideo.deleteMany();
+  await prisma.comment.deleteMany();
+  await prisma.playlist.deleteMany();
+  await prisma.playlistHasVideo.deleteMany();
 
 
   await processInChunks (users, 1, (user) =>
@@ -94,13 +93,13 @@ async function main() {
       where: { id: video.id },
       update: {
         ...video,
-        createAt: video.createAt ? new Date(video.createAt) : undefined,
+        createdAt: video.createdAt ? new Date(video.createdAt) : undefined,
         thumbnailUrl: `htttps://res.cloudnidary.com/${cloudinaryName}${video.thumbnailUrl}`,
         videoUrl: `htttps://res.cloudnidary.com/${cloudinaryName}${video.videoUrl}`,
       },
       create: {
         ...video,
-        createAt: video.createAt ? new Date(video.createAt) : undefined,
+        createdAt: video.createdAt ? new Date(video.createdAt) : undefined,
         thumbnailUrl: `htttps://res.cloudnidary.com/${cloudinaryName}${video.thumbnailUrl}`,
         videoUrl: `htttps://res.cloudnidary.com/${cloudinaryName}${video.videoUrl}`,
       },
@@ -122,24 +121,27 @@ async function main() {
       return;
     }
   });
-  await processInChunks (announcements, 1, (announcement) =>
-    prisma.announcement.create( { data: announcement }),
-  );
-  await processInChunks (announcementEngagements, 1, async (announcementEngagement) => {
-    const existingAnnouncementEngagements = await prisma.announcementEngagement.findMany({
-      where: {
-        annoucementId: announcementEngagement.annoucementId,
-        userId: announcementEngagement.userId,
-      },
-    });
-    if ( existingAnnouncementEngagements.length === 0 || !existingAnnouncementEngagements){
-      return prisma.announcementEngagement.create({
-        data: announcementEngagement,
-      });
-    } else {
-      return;
-    }
+
+  await processInChunks(announcements, 1, (announcement) =>
+  prisma.announcement.create({ data: announcement })
+);
+
+await processInChunks(announcementEngagements, 1, async (announcementEngagement) => {
+  const existingAnnouncementEngagements = await prisma.announcementEngagement.findMany({
+    where: {
+      announcementId: announcementEngagement.announcementId,
+      userId: announcementEngagement.userId,
+    },
   });
+  if (existingAnnouncementEngagements.length === 0 || !existingAnnouncementEngagements) {
+    return prisma.announcementEngagement.create({
+      data: announcementEngagement,
+    });
+  } else {
+    return;
+  }
+});
+
 
   await processInChunks (comments, 1, (comment) =>
     prisma.comment.upsert ({
@@ -148,13 +150,13 @@ async function main() {
         ...comment,
         videoId: getNextVideoId(),
         userId: getNextUserId(),
-        createAt: comment.createAt ? new Date(comment.createAt) : undefined,
+        createdAt: comment.createdAt ? new Date(comment.createdAt) : undefined,
       },
       create: {
         ...comment,
         videoId: getNextVideoId(),
         userId: getNextUserId(),
-        createAt: comment.createAt ? new Date(comment.createAt) : undefined,
+        createdAt: comment.createdAt ? new Date(comment.createdAt) : undefined,
       },
     })
   );
@@ -164,12 +166,12 @@ async function main() {
       update: {
         ...playlist,
         userId: getNextUserId(),
-        createAt: playlist.createAt ? new Date(playlist.createAt) : undefined,
+        createdAt: playlist.createdAt ? new Date(playlist.createdAt) : undefined,
       },
       create: {
         ...playlist,
         userId: getNextUserId(),
-        createAt: playlist.createAt ? new Date(playlist.createAt) : undefined,
+        createdAt: playlist.createdAt ? new Date(playlist.createdAt) : undefined,
       },
     })
   );
